@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Flappy</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333; /* Dark background */
+            font-family: monospace;
+        }
+        canvas {
+            border: 2px solid #8B4513; /* Brown border for pixel aesthetic */
+            background-color: #70c4ff; /* Light blue sky background */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Game Constants ---
+        const GAME_WIDTH = canvas.width;
+        const GAME_HEIGHT = canvas.height;
+
+        // Physics constants
+        const GRAVITY = 0.5;
+        const JUMP_VELOCITY = -8; // Negative for upward movement
+        const PIPE_SPEED = 2;
+        const PIPE_GAP = 125;
+        const PIPE_WIDTH = 40;
+
+        // --- Game State Variables ---
+        let bird = {
+            x: 50,
+            y: GAME_HEIGHT / 2,
+            width: 30,
+            height: 30,
+            velocity: 0
+        };
+
+        let pipes = [];
+        let score = 0;
+        let isGameOver = false;
+        let gameSpeed = PIPE_SPEED; // Initial speed
+
+        // --- Bird Drawing Function (Pixel Art Style) ---
+        function drawBird() {
+            ctx.fillStyle = '#FFD700'; // Gold/Yellow color for the bird
+            ctx.fillRect(bird.x, bird.y, bird.width, bird.height);
+        }
+
+        // --- Pipe Drawing Function (Pixel Art Style) ---
+        function drawPipes() {
+            ctx.fillStyle = '#3CB371'; // Green color for the pipes (a nice earthy tone)
+            pipes.forEach(pipe => {
+                // Top pipe
+                ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                // Bottom pipe
+                ctx.fillRect(pipe.x, pipe.bottomY, PIPE_WIDTH, GAME_HEIGHT - pipe.bottomY);
+            });
+        }
+
+        // --- Pipe Generation and Movement ---
+        function generatePipe() {
+            // Random height for the top pipe (ensuring there's space for the gap)
+            const minHeight = 50;
+            const maxHeight = GAME_HEIGHT - PIPE_GAP - minHeight;
+            const topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+            pipes.push({
+                x: GAME_WIDTH,
+                topHeight: topHeight,
+                bottomY: topHeight + PIPE_GAP,
+                passed: false
+            });
+        }
+
+        function updatePipes() {
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
+                pipe.x -= gameSpeed;
+
+                // Scoring
+                if (!pipe.passed && pipe.x < bird.x) {
+                    score++;
+                    pipe.passed = true;
+                }
+
+                // Remove off-screen pipes
+                if (pipe.x + PIPE_WIDTH < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            // Generate new pipes if needed
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < GAME_WIDTH - 200) {
+                 if (!isGameOver) {
+                    generatePipe();
+                }
+            }
+        }
+
+
+        // --- Collision Detection ---
+        function checkCollision() {
+            // 1. Check Floor/Ceiling Collision
+            if (bird.y + bird.height > GAME_HEIGHT || bird.y < 0) {
+                return true; // Hit boundary
+            }
+
+            // 2. Check Pipe Collision
+            for (const pipe of pipes) {
+                // Check if the bird is horizontally within a pipe's x-range
+                if (bird.x < pipe.x + PIPE_WIDTH && bird.x + bird.width > pipe.x) {
+
+                    // Check vertical collision with top pipe OR bottom pipe
+                    const hitTop = bird.y < pipe.topHeight;
+                    const hitBottom = bird.y + bird.height > pipe.bottomY;
+
+                    if (hitTop || hitBottom) {
+                        return true; // Collision detected
+                    }
+                }
+            }
+            return false;
+        }
+
+
+        // --- Game Loop ---
+        function gameLoop() {
+            if (isGameOver) return;
+
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Apply gravity to bird
+            bird.velocity += GRAVITY;
+            bird.y += bird.velocity;
+
+            // Draw elements
+            drawPipes();
+            drawBird();
+
+            // Update and check pipes
+            updatePipes();
+
+            // Check game over condition
+            if (checkCollision()) {
+                isGameOver = true;
+                console.log("Game Over! Score:", score);
+            }
+
+            // Update score display (Optional: Draw text on canvas)
+            ctx.fillStyle = '#000';
+            ctx.font = '24px monospace';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Input Handling ---
+        function handleJump() {
+            if (isGameOver) return;
+            bird.velocity = JUMP_VELOCITY;
+        }
+
+        // Event Listener for clicking/tapping and pressing spacebar
+        canvas.addEventListener('click', handleJump);
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                handleJump();
+            }
+        });
+
+
+        // --- Initialization ---
+
+        // Start the pipe generation cycle immediately
+        let pipeTimer = 0;
+        function spawnTimer() {
+            pipeTimer++;
+            // Generate a new pipe every few frames to control density
+            if (pipeTimer > 120) { 
+                generatePipe();
+                pipeTimer = 0;
+            }
+        }
+
+        // Start the game loop and spawning
+        gameLoop();
+        spawnTimer(); // Start the pipeline timing
+
+    </script>
+</body>
+</html>
